@@ -108,10 +108,6 @@ export function LoginForm() {
           Sign up
         </Link>
       </p>
-
-      <p className="mt-4 text-center text-xs text-zinc-400">
-        Demo account: demo@lifeflow.app / demo1234
-      </p>
     </div>
   );
 }
