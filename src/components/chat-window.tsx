@@ -1,11 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
-import { Send, Loader2, Mic, MicOff } from "lucide-react";
+import { Send, Loader2, Mic, MicOff, SquarePen, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 type ChatEntry = { role: "user" | "assistant"; content: string };
+type ConversationSummary = { id: string; title: string; updatedAt: string };
 
 // Minimal shape of the Web Speech API's SpeechRecognition — not in lib.dom.d.ts.
 interface SpeechRecognitionLike extends EventTarget {
@@ -36,14 +45,26 @@ function noopSubscribe() {
   return () => {};
 }
 
+function redirectToLogout() {
+  window.location.href = "/api/auth/logout";
+}
+
 const WELCOME_MESSAGE: ChatEntry = {
   role: "assistant",
   content: "Ask me anything! I can help you with tasks, reminders, and more. Just type your message below and hit send.",
 };
 
+function toEntries(history: { role: string; content: string }[]): ChatEntry[] {
+  return history.map((m) => ({
+    role: m.role.toLowerCase() === "user" ? "user" : "assistant",
+    content: m.content,
+  }));
+}
+
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
@@ -56,18 +77,26 @@ export function ChatWindow() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const fetchConversations = useCallback(async (): Promise<ConversationSummary[] | null> => {
+    const res = await fetch("/api/chat");
+    if (res.status === 401) {
+      redirectToLogout();
+      return null;
+    }
+    const { conversations: list } = await res.json();
+    return list ?? [];
+  }, []);
+
   // Load the user's most recent conversation (if any) so persisted chat
   // history survives a page reload instead of only living in the database.
   useEffect(() => {
     (async () => {
       try {
-        const listRes = await fetch("/api/chat");
-        if (listRes.status === 401) {
-          window.location.href = "/api/auth/logout";
-          return;
-        }
-        const { conversations } = await listRes.json();
-        const latest = conversations?.[0];
+        const list = await fetchConversations();
+        if (list === null) return;
+        setConversations(list);
+
+        const latest = list[0];
         if (!latest) {
           setMessages([WELCOME_MESSAGE]);
           return;
@@ -77,12 +106,7 @@ export function ChatWindow() {
         const { messages: history } = await messagesRes.json();
         if (history?.length) {
           setConversationId(latest.id);
-          setMessages(
-            history.map((m: { role: string; content: string }) => ({
-              role: m.role.toLowerCase() === "user" ? "user" : "assistant",
-              content: m.content,
-            }))
-          );
+          setMessages(toEntries(history));
         } else {
           setMessages([WELCOME_MESSAGE]);
         }
@@ -92,7 +116,31 @@ export function ChatWindow() {
         setHistoryLoaded(true);
       }
     })();
-  }, []);
+  }, [fetchConversations]);
+
+  function startNewChat() {
+    setConversationId(undefined);
+    setMessages([WELCOME_MESSAGE]);
+  }
+
+  async function openConversation(id: string) {
+    setHistoryLoaded(false);
+    const res = await fetch(`/api/chat?conversationId=${id}`);
+    if (res.status === 401) {
+      redirectToLogout();
+      return;
+    }
+    const { messages: history } = await res.json();
+    setConversationId(id);
+    setMessages(history?.length ? toEntries(history) : [WELCOME_MESSAGE]);
+    setHistoryLoaded(true);
+  }
+
+  async function onHistoryOpenChange(open: boolean) {
+    if (!open) return;
+    const list = await fetchConversations();
+    if (list) setConversations(list);
+  }
 
   const toggleListening = useCallback(() => {
     if (listening) {
@@ -138,7 +186,7 @@ export function ChatWindow() {
       });
 
       if (res.status === 401) {
-        window.location.href = "/api/auth/logout";
+        redirectToLogout();
         return;
       }
 
@@ -159,6 +207,41 @@ export function ChatWindow() {
 
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-6 py-8">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
+        <div className="flex items-center gap-1.5">
+          <DropdownMenu onOpenChange={onHistoryOpenChange}>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Chat history">
+                  <History aria-hidden="true" className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Recent conversations</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {conversations.length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">No conversations yet.</p>
+              ) : (
+                conversations.map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onClick={() => openConversation(c.id)}
+                    className={c.id === conversationId ? "bg-muted" : ""}
+                  >
+                    <span className="truncate">{c.title || "Untitled conversation"}</span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={startNewChat}>
+            <SquarePen aria-hidden="true" className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-4 overflow-y-auto">
         {!historyLoaded && (
           <div className="flex justify-start" aria-hidden="true">

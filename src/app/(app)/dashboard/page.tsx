@@ -26,9 +26,16 @@ export default async function DashboardPage() {
   const { tasks }: { tasks: Task[] } = await tasksRes.json();
   const { reminders }: { reminders: Reminder[] } = await remindersRes.json();
   const { memories } = await memoriesRes.json();
-  const { eventTypes, configured: calendlyConfigured }: { eventTypes: CalendlyEventType[]; configured: boolean } =
-    await eventTypesRes.json();
-  const { events: scheduledEvents }: { events: CalendlyScheduledEvent[] } = await scheduledEventsRes.json();
+  const {
+    eventTypes,
+    configured: calendlyConfigured,
+    authError: eventTypesAuthError,
+  }: { eventTypes: CalendlyEventType[]; configured: boolean; authError: boolean } = await eventTypesRes.json();
+  const {
+    events: scheduledEvents,
+    authError: scheduledEventsAuthError,
+  }: { events: CalendlyScheduledEvent[]; authError: boolean } = await scheduledEventsRes.json();
+  const calendlyAuthError = eventTypesAuthError || scheduledEventsAuthError;
 
   const openTasks = tasks
     .filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS")
@@ -123,6 +130,12 @@ export default async function DashboardPage() {
           <CardContent className="flex flex-col gap-5">
             {!calendlyConfigured ? (
               <p className="text-sm text-muted-foreground">Meeting booking isn&apos;t configured yet.</p>
+            ) : calendlyAuthError ? (
+              <p className="text-sm text-destructive">
+                Calendly rejected the connection — the API key on the backend may be stale, wrong, or
+                missing the required scopes. Check <code className="text-xs">CALENDLY_API_KEY</code> in the
+                backend&apos;s environment and confirm it matches an active Personal Access Token.
+              </p>
             ) : (
               <>
                 <div>
