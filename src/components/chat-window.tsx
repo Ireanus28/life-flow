@@ -1,20 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
-import { Send, Loader2, Mic, MicOff, SquarePen, History } from "lucide-react";
+import { Send, Loader2, Mic, MicOff, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ChatSidebar, type ConversationSummary } from "@/components/chat-sidebar";
 
 type ChatEntry = { role: "user" | "assistant"; content: string };
-type ConversationSummary = { id: string; title: string; updatedAt: string };
 
 // Minimal shape of the Web Speech API's SpeechRecognition — not in lib.dom.d.ts.
 interface SpeechRecognitionLike extends EventTarget {
@@ -69,6 +62,7 @@ export function ChatWindow() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const voiceSupported = useSyncExternalStore(noopSubscribe, () => !!getSpeechRecognitionCtor(), () => false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -124,6 +118,7 @@ export function ChatWindow() {
   }
 
   async function openConversation(id: string) {
+    if (id === conversationId) return;
     setHistoryLoaded(false);
     const res = await fetch(`/api/chat?conversationId=${id}`);
     if (res.status === 401) {
@@ -134,12 +129,6 @@ export function ChatWindow() {
     setConversationId(id);
     setMessages(history?.length ? toEntries(history) : [WELCOME_MESSAGE]);
     setHistoryLoaded(true);
-  }
-
-  async function onHistoryOpenChange(open: boolean) {
-    if (!open) return;
-    const list = await fetchConversations();
-    if (list) setConversations(list);
   }
 
   const toggleListening = useCallback(() => {
@@ -195,6 +184,10 @@ export function ChatWindow() {
 
       setConversationId(data.conversationId);
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      // A brand-new conversation (or an updated title/order for an existing
+      // one) may have just been created — refresh the sidebar list.
+      const list = await fetchConversations();
+      if (list) setConversations(list);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -206,107 +199,107 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-6 py-8">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
-        <div className="flex items-center gap-1.5">
-          <DropdownMenu onOpenChange={onHistoryOpenChange}>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label="Chat history">
-                  <History aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Recent conversations</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {conversations.length === 0 ? (
-                <p className="px-2 py-1.5 text-xs text-muted-foreground">No conversations yet.</p>
-              ) : (
-                conversations.map((c) => (
-                  <DropdownMenuItem
-                    key={c.id}
-                    onClick={() => openConversation(c.id)}
-                    className={c.id === conversationId ? "bg-muted" : ""}
-                  >
-                    <span className="truncate">{c.title || "Untitled conversation"}</span>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={startNewChat}>
-            <SquarePen aria-hidden="true" className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-4 overflow-y-auto">
-        {!historyLoaded && (
-          <div className="flex justify-start" aria-hidden="true">
-            <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
-            </div>
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[80%] min-w-0 wrap-break-word rounded-2xl px-4 py-2.5 text-sm ${
-                m.role === "user"
-                  ? "bg-accent text-accent-foreground"
-                  : "border border-border bg-card text-card-foreground"
-              }`}
-            >
-              {m.content}
-            </div>
-          </div>
-        ))}
-        {sending && (
-          <div className="flex justify-start" aria-hidden="true">
-            <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <form onSubmit={sendMessage} className="mt-4 flex gap-2">
-        <label htmlFor="chat-input" className="sr-only">
-          Message LifeFlow
-        </label>
-        <Input
-          id="chat-input"
-          name="message"
-          autoComplete="off"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Message LifeFlow…"
-          className="flex-1 rounded-full"
+    <div className="flex h-full">
+      {/* Desktop persistent sidebar */}
+      <div className="hidden md:flex">
+        <ChatSidebar
+          conversations={conversations}
+          activeConversationId={conversationId}
+          onSelectConversation={openConversation}
+          onNewChat={startNewChat}
         />
-        {voiceSupported && (
-          <Button
-            type="button"
-            variant={listening ? "destructive" : "outline"}
-            size="icon"
-            aria-label={listening ? "Stop voice input" : "Start voice input"}
-            aria-pressed={listening}
-            onClick={toggleListening}
-            className="rounded-full"
-          >
-            {listening ? <MicOff aria-hidden="true" className="h-4 w-4" /> : <Mic aria-hidden="true" className="h-4 w-4" />}
+      </div>
+
+      {/* Mobile sidebar (Sheet) */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Chat history</SheetTitle>
+          </SheetHeader>
+          <ChatSidebar
+            conversations={conversations}
+            activeConversationId={conversationId}
+            onSelectConversation={openConversation}
+            onNewChat={startNewChat}
+            onNavigate={() => setSidebarOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
+        <div className="mb-2 flex items-center gap-2 md:hidden">
+          <Button variant="ghost" size="icon-sm" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+            <PanelLeft aria-hidden="true" className="h-4 w-4" />
           </Button>
-        )}
-        <Button type="submit" disabled={sending || !input.trim()} aria-label="Send message" className="rounded-full">
-          {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
-        </Button>
-      </form>
+          <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
+        </div>
+
+        <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-4 overflow-y-auto">
+          {!historyLoaded && (
+            <div className="flex justify-start" aria-hidden="true">
+              <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+              </div>
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[80%] min-w-0 wrap-break-word rounded-2xl px-4 py-2.5 text-sm ${
+                  m.role === "user"
+                    ? "bg-accent text-accent-foreground"
+                    : "border border-border bg-card text-card-foreground"
+                }`}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex justify-start" aria-hidden="true">
+              <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        <form onSubmit={sendMessage} className="mt-4 flex gap-2">
+          <label htmlFor="chat-input" className="sr-only">
+            Message LifeFlow
+          </label>
+          <Input
+            id="chat-input"
+            name="message"
+            autoComplete="off"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Message LifeFlow…"
+            className="flex-1 rounded-full"
+          />
+          {voiceSupported && (
+            <Button
+              type="button"
+              variant={listening ? "destructive" : "outline"}
+              size="icon"
+              aria-label={listening ? "Stop voice input" : "Start voice input"}
+              aria-pressed={listening}
+              onClick={toggleListening}
+              className="rounded-full"
+            >
+              {listening ? <MicOff aria-hidden="true" className="h-4 w-4" /> : <Mic aria-hidden="true" className="h-4 w-4" />}
+            </Button>
+          )}
+          <Button type="submit" disabled={sending || !input.trim()} aria-label="Send message" className="rounded-full">
+            {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
