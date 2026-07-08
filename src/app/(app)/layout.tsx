@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <SidebarNav />
       <GlobalSearch />
-      <main id="main-content" className="flex-1 overflow-y-auto bg-muted/40 pt-14 md:pt-0">
+      <main id="main-content" className="min-w-0 flex-1 overflow-y-auto bg-muted/40 pt-14 md:pt-0">
         {children}
       </main>
     </div>
