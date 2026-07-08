@@ -1,0 +1,13 @@
+{
+  "name": "LifeFlow",
+  "short_name": "LifeFlow",
+  "description": "The AI-powered personal operating system that remembers everything.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#fbfaf8",
+  "theme_color": "#5b4fe5",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

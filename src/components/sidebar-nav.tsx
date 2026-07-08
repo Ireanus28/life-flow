@@ -1,0 +1,116 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, MessageCircle, ListTodo, Bell, Brain, Settings, LogOut, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+const links = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/memory", label: "Memory", icon: Brain },
+];
+
+function BrandMark() {
+  return (
+    <Link href="/dashboard" className="font-display mb-8 flex items-center gap-2 px-2 text-lg font-medium text-foreground">
+      <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
+      LifeFlow
+    </Link>
+  );
+}
+
+function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col gap-1">
+      {links.map((link) => {
+        const active = pathname.startsWith(link.href);
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <link.icon aria-hidden="true" className="h-4 w-4" />
+            {link.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function NavFooter({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="border-t border-border pt-2">
+      <Link
+        href="/settings/notifications"
+        onClick={onNavigate}
+        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <Settings aria-hidden="true" className="h-4 w-4" />
+        Settings
+      </Link>
+      <a
+        href="/api/auth/logout"
+        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <LogOut aria-hidden="true" className="h-4 w-4" />
+        Sign out
+      </a>
+    </div>
+  );
+}
+
+export function SidebarNav() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
+        <Link href="/dashboard" className="font-display flex items-center gap-2 text-base font-medium text-foreground">
+          <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
+          LifeFlow
+        </Link>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open navigation menu"
+            onClick={() => setOpen(true)}
+          >
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          </Button>
+          <SheetContent side="left" className="flex flex-col p-4">
+            <SheetHeader className="p-0">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+            </SheetHeader>
+            <BrandMark />
+            <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+            <NavFooter onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </header>
+
+      {/* Desktop fixed rail */}
+      <nav
+        aria-label="Primary"
+        className="hidden h-full w-56 flex-col border-r border-border bg-background p-4 md:flex"
+      >
+        <BrandMark />
+        <NavLinks pathname={pathname} />
+        <NavFooter />
+      </nav>
+    </>
+  );
+}
