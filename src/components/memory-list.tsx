@@ -86,7 +86,7 @@ export function MemoryList({ initialMemories }: { initialMemories: Memory[] }) {
         {memories.map((m) => (
           <li
             key={m.id}
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
           >
             <Badge className={categoryColor[m.category]}>{m.category}</Badge>
             <span className="min-w-0 flex-1 basis-40 text-sm wrap-break-word text-foreground">{m.content}</span>

@@ -59,7 +59,7 @@ function TaskRow({
 }) {
   return (
     <li
-      className={`flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 ${
+      className={`flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 ${
         nested ? "ml-4 border-dashed sm:ml-6" : ""
       }`}
     >
@@ -244,9 +244,9 @@ export function TaskBoard({ initialTasks }: { initialTasks: Task[] }) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a task…"
-          className="flex-1 rounded-full"
+          className="flex-1 rounded-full! focus-visible:rounded-full!"
         />
-        <Button type="submit" disabled={adding || !title.trim()} className="rounded-full">
+        <Button type="submit" disabled={adding || !title.trim()} className="rounded-full!">
           Add
         </Button>
       </form>

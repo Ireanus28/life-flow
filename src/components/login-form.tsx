@@ -56,7 +56,7 @@ export function LoginForm() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-accent dark:border-zinc-800 dark:bg-zinc-900"
+            className="w-full rounded-2xl border border-zinc-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-accent dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
 
@@ -74,7 +74,7 @@ export function LoginForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 pr-10 text-sm outline-none transition-colors focus:border-accent dark:border-zinc-800 dark:bg-zinc-900"
+              className="w-full rounded-2xl border border-zinc-200 px-3 py-2.5 pr-10 text-sm outline-none transition-colors focus:border-accent dark:border-zinc-800 dark:bg-zinc-900"
             />
             <button
               type="button"
@@ -95,7 +95,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
+          className="mt-1 flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
         >
           {loading && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
           {loading ? "Signing in…" : "Sign in"}

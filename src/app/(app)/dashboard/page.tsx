@@ -36,6 +36,10 @@ export default async function DashboardPage() {
     authError: scheduledEventsAuthError,
   }: { events: CalendlyScheduledEvent[]; authError: boolean } = await scheduledEventsRes.json();
   const calendlyAuthError = eventTypesAuthError || scheduledEventsAuthError;
+  // Calendly's API doesn't return a general "profile" URL directly — derive
+  // it from any event type's scheduling_url by dropping the last segment,
+  // e.g. https://calendly.com/user/30min -> https://calendly.com/user
+  const calendlyProfileUrl = eventTypes[0]?.schedulingUrl.replace(/\/[^/]+\/?$/, "");
 
   const openTasks = tasks
     .filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS")
@@ -120,14 +124,27 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="sm:col-span-2">
-          <CardHeader>
+        <Card className={`relative sm:col-span-2 ${calendlyProfileUrl ? "transition-colors hover:bg-muted/40" : ""}`}>
+          {/* Stretched-link pattern: clicking anywhere on the card's
+              background opens Calendly to book, while the specific
+              per-event-type buttons below still work as their own targets
+              (they sit above this in stacking order). */}
+          {calendlyProfileUrl && (
+            <a
+              href={calendlyProfileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute inset-0 z-0 rounded-2xl"
+              aria-label="Book a meeting on Calendly"
+            />
+          )}
+          <CardHeader className="relative z-10">
             <CardTitle className="flex items-center gap-2">
               <CalendarDays aria-hidden="true" className="h-4 w-4 text-accent" />
               Meetings
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-5">
+          <CardContent className="relative z-10 flex flex-col gap-5">
             {!calendlyConfigured ? (
               <p className="text-sm text-muted-foreground">Meeting booking isn&apos;t configured yet.</p>
             ) : calendlyAuthError ? (
@@ -158,7 +175,7 @@ export default async function DashboardPage() {
                   )}
                 </div>
 
-                <div>
+                <div className="relative z-10">
                   <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Book a meeting
                   </p>
@@ -172,6 +189,7 @@ export default async function DashboardPage() {
                           size="sm"
                           variant="outline"
                           nativeButton={false}
+                          className="relative z-10"
                           render={<a href={eventType.schedulingUrl} target="_blank" rel="noopener noreferrer" />}
                         >
                           {eventType.name} ({eventType.durationMinutes}m)

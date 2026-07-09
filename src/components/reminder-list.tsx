@@ -116,7 +116,7 @@ export function ReminderList({ initialReminders }: { initialReminders: Reminder[
         {reminders.map((r) => (
           <li
             key={r.id}
-            className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+            className="flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
           >
             <span className="min-w-0 truncate text-sm text-foreground sm:flex-1">{r.title}</span>
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto">

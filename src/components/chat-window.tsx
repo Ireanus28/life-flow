@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
-import { Send, Loader2, Mic, MicOff, PanelLeft } from "lucide-react";
+import { Send, Loader2, Mic, MicOff, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -131,6 +131,36 @@ export function ChatWindow() {
     setHistoryLoaded(true);
   }
 
+  async function patchConversation(id: string, patch: Partial<{ title: string; pinned: boolean; archived: boolean }>) {
+    await fetch(`/api/chat/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+  }
+
+  function handlePin(id: string, pinned: boolean) {
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned } : c)).sort((a, b) => Number(b.pinned) - Number(a.pinned)));
+    patchConversation(id, { pinned });
+  }
+
+  function handleRename(id: string, title: string) {
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)));
+    patchConversation(id, { title });
+  }
+
+  function handleArchive(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (id === conversationId) startNewChat();
+    patchConversation(id, { archived: true });
+  }
+
+  async function handleDelete(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (id === conversationId) startNewChat();
+    await fetch(`/api/chat/conversations/${id}`, { method: "DELETE" });
+  }
+
   const toggleListening = useCallback(() => {
     if (listening) {
       recognitionRef.current?.stop();
@@ -200,17 +230,9 @@ export function ChatWindow() {
 
   return (
     <div className="flex h-full">
-      {/* Desktop persistent sidebar */}
-      <div className="hidden md:flex">
-        <ChatSidebar
-          conversations={conversations}
-          activeConversationId={conversationId}
-          onSelectConversation={openConversation}
-          onNewChat={startNewChat}
-        />
-      </div>
-
-      {/* Mobile sidebar (Sheet) */}
+      {/* Single toggleable sidebar — same control (one hamburger button) on
+          every screen size, rather than a separate always-open desktop rail
+          plus a different mobile mechanism. */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetHeader className="sr-only">
@@ -222,14 +244,18 @@ export function ChatWindow() {
             onSelectConversation={openConversation}
             onNewChat={startNewChat}
             onNavigate={() => setSidebarOpen(false)}
+            onPin={handlePin}
+            onRename={handleRename}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
           />
         </SheetContent>
       </Sheet>
 
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
-        <div className="mb-2 flex items-center gap-2 md:hidden">
+        <div className="mb-2 flex items-center gap-2">
           <Button variant="ghost" size="icon-sm" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
-            <PanelLeft aria-hidden="true" className="h-4 w-4" />
+            <Menu aria-hidden="true" className="h-4 w-4" />
           </Button>
           <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
         </div>
@@ -280,7 +306,7 @@ export function ChatWindow() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message LifeFlow…"
-            className="flex-1 rounded-full"
+            className="flex-1 rounded-full! focus-visible:rounded-full!"
           />
           {voiceSupported && (
             <Button
@@ -290,12 +316,12 @@ export function ChatWindow() {
               aria-label={listening ? "Stop voice input" : "Start voice input"}
               aria-pressed={listening}
               onClick={toggleListening}
-              className="rounded-full"
+              className="rounded-full!"
             >
               {listening ? <MicOff aria-hidden="true" className="h-4 w-4" /> : <Mic aria-hidden="true" className="h-4 w-4" />}
             </Button>
           )}
-          <Button type="submit" disabled={sending || !input.trim()} aria-label="Send message" className="rounded-full">
+          <Button type="submit" disabled={sending || !input.trim()} aria-label="Send message" className="rounded-full!">
             {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
           </Button>
         </form>

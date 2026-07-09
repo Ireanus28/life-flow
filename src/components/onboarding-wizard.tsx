@@ -105,7 +105,7 @@ export function OnboardingWizard() {
                 type="button"
                 onClick={() => setPrimaryMode(m.value)}
                 aria-pressed={primaryMode === m.value}
-                className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   primaryMode === m.value
                     ? "border-accent bg-accent text-accent-foreground"
                     : "border-border bg-card text-foreground hover:bg-muted"
