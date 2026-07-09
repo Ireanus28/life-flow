@@ -1,7 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { SquarePen, MessageCircle, MoreHorizontal, Pin, PinOff, Pencil, Archive, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import {
+  SquarePen,
+  MessageCircle,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,9 +21,121 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-export type ConversationSummary = { id: string; title: string; updatedAt: string; pinned: boolean };
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  pinned: boolean;
+  archived: boolean;
+};
+
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function useLongPress(onLongPress: () => void, ms = 500) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const start = useCallback(() => {
+    timer.current = setTimeout(onLongPress, ms);
+  }, [onLongPress, ms]);
+  const clear = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  return { onTouchStart: start, onTouchEnd: clear, onTouchMove: clear, onTouchCancel: clear };
+}
+
+function ConversationRow({
+  conversation: c,
+  active,
+  onSelect,
+  onNavigate,
+  onPin,
+  onRename,
+  onArchive,
+  onDeleteRequest,
+}: {
+  conversation: ConversationSummary;
+  active: boolean;
+  onSelect: (id: string) => void;
+  onNavigate?: () => void;
+  onPin: (id: string, pinned: boolean) => void;
+  onRename: (c: ConversationSummary) => void;
+  onArchive: (id: string, archived: boolean) => void;
+  onDeleteRequest: (c: ConversationSummary) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const longPress = useLongPress(() => setMenuOpen(true));
+
+  return (
+    <li className="group/row flex items-center" {...longPress}>
+      <button
+        onClick={() => {
+          onSelect(c.id);
+          onNavigate?.();
+        }}
+        aria-current={active ? "page" : undefined}
+        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-3 py-2 text-left text-sm transition-colors ${
+          active
+            ? "bg-accent text-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        }`}
+      >
+        <MessageCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{c.title || "Untitled conversation"}</span>
+      </button>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Options for "${c.title}"`}
+              className="shrink-0 opacity-0 group-hover/row:opacity-100 data-popup-open:opacity-100"
+            >
+              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" className="rounded-2xl">
+          <DropdownMenuItem onClick={() => onPin(c.id, !c.pinned)}>
+            {c.pinned ? (
+              <>
+                <PinOff aria-hidden="true" />
+                Unpin
+              </>
+            ) : (
+              <>
+                <Pin aria-hidden="true" />
+                Pin
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onRename(c)}>
+            <Pencil aria-hidden="true" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onArchive(c.id, !c.archived)}>
+            {c.archived ? (
+              <>
+                <ArchiveRestore aria-hidden="true" />
+                Unarchive
+              </>
+            ) : (
+              <>
+                <Archive aria-hidden="true" />
+                Archive
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => onDeleteRequest(c)}>
+            <Trash2 aria-hidden="true" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
+  );
+}
 
 export function ChatSidebar({
   conversations,
@@ -32,17 +155,26 @@ export function ChatSidebar({
   onNavigate?: () => void;
   onPin: (id: string, pinned: boolean) => void;
   onRename: (id: string, title: string) => void;
-  onArchive: (id: string) => void;
+  onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [renaming, setRenaming] = useState<ConversationSummary | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+  // Computed once (lazy initializer) rather than via Date.now() inside the
+  // memo below — the Recent/Older boundary doesn't need to tick live while
+  // the panel is open.
+  const [recentCutoff] = useState(() => Date.now() - RECENT_WINDOW_MS);
 
-  const { pinned, rest } = useMemo(() => {
-    const pinned = conversations.filter((c) => c.pinned);
-    const rest = conversations.filter((c) => !c.pinned);
-    return { pinned, rest };
-  }, [conversations]);
+  const { pinned, recent, older, archived } = useMemo(() => {
+    const active = conversations.filter((c) => !c.archived);
+    const archived = conversations.filter((c) => c.archived);
+    const pinned = active.filter((c) => c.pinned);
+    const unpinned = active.filter((c) => !c.pinned);
+    const recent = unpinned.filter((c) => new Date(c.updatedAt).getTime() >= recentCutoff);
+    const older = unpinned.filter((c) => new Date(c.updatedAt).getTime() < recentCutoff);
+    return { pinned, recent, older, archived };
+  }, [conversations, recentCutoff]);
 
   function openRename(c: ConversationSummary) {
     setRenaming(c);
@@ -53,82 +185,56 @@ export function ChatSidebar({
     e.preventDefault();
     if (!renaming || !renameValue.trim()) return;
     onRename(renaming.id, renameValue.trim());
+    toast.success("Chat renamed");
     setRenaming(null);
   }
 
-  function confirmDelete(c: ConversationSummary) {
-    if (window.confirm(`Delete "${c.title || "this conversation"}"? This can't be undone.`)) {
-      onDelete(c.id);
-    }
+  function handlePin(id: string, pinned: boolean) {
+    onPin(id, pinned);
+    toast.success(pinned ? "Chat pinned" : "Chat unpinned");
   }
 
-  function renderRow(c: ConversationSummary) {
-    const active = c.id === activeConversationId;
+  function handleArchive(id: string, archived: boolean) {
+    onArchive(id, archived);
+    toast.success(archived ? "Chat archived" : "Chat unarchived");
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    onDelete(deleteTarget.id);
+    toast.success("Chat deleted");
+    setDeleteTarget(null);
+  }
+
+  function renderSection(label: string, items: ConversationSummary[]) {
+    if (items.length === 0) return null;
     return (
-      <li key={c.id} className="group/row flex items-center">
-        <button
-          onClick={() => {
-            onSelectConversation(c.id);
-            onNavigate?.();
-          }}
-          aria-current={active ? "page" : undefined}
-          className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-3 py-2 text-left text-sm transition-colors ${
-            active
-              ? "bg-accent text-accent-foreground font-medium"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          <MessageCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{c.title || "Untitled conversation"}</span>
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Options for "${c.title}"`}
-                className="shrink-0 opacity-0 group-hover/row:opacity-100 data-popup-open:opacity-100"
-              >
-                <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="rounded-2xl">
-            <DropdownMenuItem onClick={() => onPin(c.id, !c.pinned)}>
-              {c.pinned ? (
-                <>
-                  <PinOff aria-hidden="true" />
-                  Unpin
-                </>
-              ) : (
-                <>
-                  <Pin aria-hidden="true" />
-                  Pin
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openRename(c)}>
-              <Pencil aria-hidden="true" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onArchive(c.id)}>
-              <Archive aria-hidden="true" />
-              Archive
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => confirmDelete(c)}>
-              <Trash2 aria-hidden="true" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </li>
+      <div key={label}>
+        <p className="mt-4 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wide first:mt-0">{label}</p>
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {items.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              active={c.id === activeConversationId}
+              onSelect={onSelectConversation}
+              onNavigate={onNavigate}
+              onPin={handlePin}
+              onRename={openRename}
+              onArchive={handleArchive}
+              onDeleteRequest={setDeleteTarget}
+            />
+          ))}
+        </ul>
+      </div>
     );
   }
 
+  const isEmpty = pinned.length === 0 && recent.length === 0 && older.length === 0 && archived.length === 0;
+
   return (
     <>
-      <nav aria-label="Chat history" className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background p-3">
+      <nav aria-label="Chat history" className="flex h-full w-full flex-col p-3">
         <button
           onClick={() => {
             onNewChat();
@@ -141,21 +247,16 @@ export function ChatSidebar({
         </button>
 
         <div className="mt-2 flex-1 overflow-y-auto">
-          {pinned.length > 0 && (
+          {isEmpty ? (
+            <p className="px-3 py-2 text-sm text-muted-foreground">No conversations yet.</p>
+          ) : (
             <>
-              <p className="mt-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Pinned</p>
-              <ul className="mt-1 flex flex-col gap-0.5">{pinned.map(renderRow)}</ul>
+              {renderSection("Pinned", pinned)}
+              {renderSection("Recent", recent)}
+              {renderSection("Older", older)}
+              {renderSection("Archived", archived)}
             </>
           )}
-
-          <p className="mt-4 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Chats</p>
-          <ul className="mt-1 flex flex-col gap-0.5">
-            {rest.length === 0 && pinned.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground">No conversations yet.</li>
-            ) : (
-              rest.map(renderRow)
-            )}
-          </ul>
         </div>
       </nav>
 
@@ -178,6 +279,26 @@ export function ChatSidebar({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Delete chat?</DialogTitle>
+            <DialogDescription>
+              &ldquo;{deleteTarget?.title || "This conversation"}&rdquo; will be permanently deleted. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

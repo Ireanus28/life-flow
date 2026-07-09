@@ -149,10 +149,10 @@ export function ChatWindow() {
     patchConversation(id, { title });
   }
 
-  function handleArchive(id: string) {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (id === conversationId) startNewChat();
-    patchConversation(id, { archived: true });
+  function handleArchive(id: string, archived: boolean) {
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, archived } : c)));
+    if (archived && id === conversationId) startNewChat();
+    patchConversation(id, { archived });
   }
 
   async function handleDelete(id: string) {
@@ -234,7 +234,7 @@ export function ChatWindow() {
           every screen size, rather than a separate always-open desktop rail
           plus a different mobile mechanism. */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-64! max-w-64! p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>Chat history</SheetTitle>
           </SheetHeader>
@@ -253,9 +253,9 @@ export function ChatWindow() {
       </Sheet>
 
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
-        <div className="mb-2 flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
-            <Menu aria-hidden="true" className="h-4 w-4" />
+        <div className="mb-4 flex items-center gap-4">
+          <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+            <Menu aria-hidden="true" className="h-5 w-5" />
           </Button>
           <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
         </div>
