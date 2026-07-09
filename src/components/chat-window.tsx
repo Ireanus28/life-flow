@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Send,
@@ -17,14 +18,25 @@ import {
   ListTodo,
   Bell,
   CalendarDays,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { ChatSidebar, type ConversationSummary } from "@/components/chat-sidebar";
 import { MessageContent } from "@/components/message-content";
 import { readSSE } from "@/lib/sse";
+import { tierLabels } from "@/lib/pricing-tiers";
 
 type ChatEntry = {
   id: string;
@@ -43,8 +55,17 @@ interface SpeechRecognitionLike extends EventTarget {
   stop(): void;
   onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
 }
+
+const SPEECH_ERROR_MESSAGES: Record<string, string> = {
+  "not-allowed": "Microphone access is blocked. Allow microphone permission for this site in your browser's settings and try again.",
+  "service-not-allowed": "Microphone access is blocked. Allow microphone permission for this site in your browser's settings and try again.",
+  "no-speech": "Didn't catch any speech — try again.",
+  "audio-capture": "No microphone was found. Check that one is connected and try again.",
+  network: "Voice input needs a network connection — check your connection and try again.",
+  "language-not-supported": "Voice input doesn't support this language.",
+};
 
 function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | undefined {
   if (typeof window === "undefined") return undefined;
@@ -105,6 +126,8 @@ type StreamEvent = {
   messageId?: string;
 };
 
+type UserInfo = { name: string | null; email: string; tier: string };
+
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -118,6 +141,7 @@ export function ChatWindow() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [user, setUser] = useState<UserInfo | null>(null);
   const voiceSupported = useSyncExternalStore(noopSubscribe, () => !!getSpeechRecognitionCtor(), () => false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -130,6 +154,15 @@ export function ChatWindow() {
   useEffect(() => {
     if (stickToBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchConversations = useCallback(async (): Promise<ConversationSummary[] | null> => {
     const res = await fetch("/api/chat");
@@ -264,6 +297,14 @@ export function ChatWindow() {
       return;
     }
 
+    // The Web Speech API only runs in a secure context — over a plain http://
+    // origin (e.g. testing via a LAN IP instead of localhost or the deployed
+    // https:// site) it silently fails to produce any transcript at all.
+    if (!window.isSecureContext) {
+      toast.error("Voice input needs a secure (https://) connection — it won't work over a plain http:// address.");
+      return;
+    }
+
     const SpeechRecognition = getSpeechRecognitionCtor();
     if (!SpeechRecognition) return;
 
@@ -278,7 +319,13 @@ export function ChatWindow() {
       setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
     };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (event) => {
+      setListening(false);
+      if (event.error === "aborted") return; // user-initiated stop, not a real failure
+      const message = SPEECH_ERROR_MESSAGES[event.error];
+      if (message) toast.error(message);
+      else console.error("Speech recognition error:", event.error);
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -425,6 +472,7 @@ export function ChatWindow() {
             onRename={handleRename}
             onArchive={handleArchive}
             onDelete={handleDelete}
+            user={user}
           />
         </SheetContent>
       </Sheet>
@@ -439,7 +487,27 @@ export function ChatWindow() {
               <SquarePen aria-hidden="true" className="h-5 w-5" />
             </Button>
           </div>
-          <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button className="font-display flex items-center gap-1 text-lg font-medium text-foreground">
+                  LifeFlow
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                </button>
+              }
+            />
+            <DropdownMenuContent align="start" className="rounded-2xl">
+              <DropdownMenuLabel>{tierLabels[user?.tier ?? "FREE"] ?? "Free"} plan</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                render={<Link href="/settings/billing" />}
+              >
+                <Sparkles aria-hidden="true" />
+                Upgrade plan
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {!historyLoaded ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   SquarePen,
@@ -14,6 +15,7 @@ import {
   Trash2,
   Search,
   X,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { tierLabels } from "@/lib/pricing-tiers";
 
 export type ConversationSummary = {
   id: string;
@@ -32,6 +35,8 @@ export type ConversationSummary = {
   pinned: boolean;
   archived: boolean;
 };
+
+type SidebarUser = { name: string | null; email: string; tier: string };
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -151,6 +156,7 @@ export function ChatSidebar({
   onRename,
   onArchive,
   onDelete,
+  user,
 }: {
   conversations: ConversationSummary[];
   activeConversationId?: string;
@@ -161,6 +167,7 @@ export function ChatSidebar({
   onRename: (id: string, title: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
+  user?: SidebarUser | null;
 }) {
   const [renaming, setRenaming] = useState<ConversationSummary | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -333,6 +340,26 @@ export function ChatSidebar({
             </>
           )}
         </div>
+
+        {user && (
+          <div className="mt-2 flex items-center gap-2.5 border-t border-border pt-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-medium text-accent-foreground">
+              {(user.name || user.email).charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{user.name || user.email}</p>
+              <p className="truncate text-xs text-muted-foreground">{tierLabels[user.tier] ?? "Free"}</p>
+            </div>
+            <Link
+              href="/settings/billing"
+              onClick={onNavigate}
+              className="flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+              Upgrade
+            </Link>
+          </div>
+        )}
       </nav>
 
       <Dialog open={!!renaming} onOpenChange={(open) => !open && setRenaming(null)}>
