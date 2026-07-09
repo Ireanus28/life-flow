@@ -187,3 +187,65 @@ h3 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Chat markdown code-block syntax colors, mapped onto the app's own tokens
+   rather than an imported highlight.js theme, so it matches light/dark
+   branding instead of clashing with it. */
+.hljs {
+  color: var(--foreground);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: var(--accent);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-regexp,
+.hljs-addition {
+  color: #2e8b57;
+}
+@media (prefers-color-scheme: dark) {
+  .hljs-string,
+  .hljs-attr,
+  .hljs-regexp,
+  .hljs-addition {
+    color: #7dd8a8;
+  }
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--accent-warm);
+}
+.hljs-title,
+.hljs-section,
+.hljs-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attribute {
+  color: var(--foreground);
+}
+.hljs-built_in,
+.hljs-builtin-name {
+  color: var(--accent-warm);
+}
+.hljs-deletion {
+  color: var(--destructive);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}

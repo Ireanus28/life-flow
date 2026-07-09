@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   SquarePen,
@@ -12,6 +12,8 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
+  Search,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,8 @@ export type ConversationSummary = {
 };
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+type SearchMessageResult = { id: string; content: string; conversationId: string; role: string };
 
 function useLongPress(onLongPress: () => void, ms = 500) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -166,6 +170,28 @@ export function ChatSidebar({
   // the panel is open.
   const [recentCutoff] = useState(() => Date.now() - RECENT_WINDOW_MS);
 
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchMessageResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    // Nothing to clear when empty — the results section is only rendered
+    // while `query.trim()` is truthy, so stale state here is never shown.
+    if (!trimmed) return;
+    const handle = setTimeout(() => {
+      setSearching(true);
+      fetch(`/api/search?q=${encodeURIComponent(trimmed)}`)
+        .then((res) => res.json())
+        .then((data) => setSearchResults(data.messages ?? []))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const titleById = useMemo(() => new Map(conversations.map((c) => [c.id, c.title])), [conversations]);
+
   const { pinned, recent, older, archived } = useMemo(() => {
     const active = conversations.filter((c) => !c.archived);
     const archived = conversations.filter((c) => c.archived);
@@ -246,8 +272,57 @@ export function ChatSidebar({
           New chat
         </button>
 
+        <div className="relative mt-2">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search chats"
+            aria-label="Search conversations"
+            className="rounded-2xl! pl-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="mt-2 flex-1 overflow-y-auto">
-          {isEmpty ? (
+          {query.trim() ? (
+            searching ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
+            ) : !searchResults?.length ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No messages match &ldquo;{query.trim()}&rdquo;.</p>
+            ) : (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {searchResults.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => {
+                        onSelectConversation(r.conversationId);
+                        onNavigate?.();
+                      }}
+                      className="flex w-full flex-col items-start gap-0.5 rounded-2xl px-3 py-2 text-left transition-colors hover:bg-muted"
+                    >
+                      <span className="w-full truncate text-sm font-medium text-foreground">
+                        {titleById.get(r.conversationId) || "Untitled conversation"}
+                      </span>
+                      <span className="line-clamp-2 text-xs text-muted-foreground">{r.content}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : isEmpty ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">No conversations yet.</p>
           ) : (
             <>

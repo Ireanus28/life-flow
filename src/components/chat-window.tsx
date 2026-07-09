@@ -1,13 +1,23 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
-import { Send, Loader2, Mic, MicOff, Menu } from "lucide-react";
+import { toast } from "sonner";
+import { Send, Loader2, Mic, MicOff, Menu, Copy, Pencil, RotateCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChatSidebar, type ConversationSummary } from "@/components/chat-sidebar";
+import { MessageContent } from "@/components/message-content";
+import { readSSE } from "@/lib/sse";
 
-type ChatEntry = { role: "user" | "assistant"; content: string };
+type ChatEntry = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  streaming?: boolean;
+  failed?: boolean;
+};
 
 // Minimal shape of the Web Speech API's SpeechRecognition — not in lib.dom.d.ts.
 interface SpeechRecognitionLike extends EventTarget {
@@ -42,33 +52,58 @@ function redirectToLogout() {
   window.location.href = "/api/auth/logout";
 }
 
+// Module-level (not inline in the component) so the React Compiler doesn't
+// treat this impure Date.now() call as happening during render — it's only
+// ever invoked from event-handler-triggered async functions.
+function generateTempId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 const WELCOME_MESSAGE: ChatEntry = {
+  id: "welcome",
   role: "assistant",
   content: "Ask me anything! I can help you with tasks, reminders, and more. Just type your message below and hit send.",
 };
 
-function toEntries(history: { role: string; content: string }[]): ChatEntry[] {
+const PAGE_SIZE = 30;
+
+function toEntries(history: { id: string; role: string; content: string }[]): ChatEntry[] {
   return history.map((m) => ({
+    id: m.id,
     role: m.role.toLowerCase() === "user" ? "user" : "assistant",
     content: m.content,
   }));
 }
 
+type StreamEvent = {
+  type: "start" | "token" | "done";
+  conversationId?: string;
+  userMessageId?: string;
+  token?: string;
+  messageId?: string;
+};
+
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const voiceSupported = useSyncExternalStore(noopSubscribe, () => !!getSpeechRecognitionCtor(), () => false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const stickToBottomRef = useRef(true);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (stickToBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const fetchConversations = useCallback(async (): Promise<ConversationSummary[] | null> => {
@@ -79,6 +114,23 @@ export function ChatWindow() {
     }
     const { conversations: list } = await res.json();
     return list ?? [];
+  }, []);
+
+  const loadConversation = useCallback(async (id: string): Promise<void> => {
+    const res = await fetch(`/api/chat?conversationId=${id}&take=${PAGE_SIZE}`);
+    if (res.status === 401) {
+      redirectToLogout();
+      return;
+    }
+    const { messages: history, hasMore: more } = await res.json();
+    setConversationId(id);
+    if (history?.length) {
+      setMessages(toEntries(history));
+      setHasMore(!!more);
+    } else {
+      setMessages([WELCOME_MESSAGE]);
+      setHasMore(false);
+    }
   }, []);
 
   // Load the user's most recent conversation (if any) so persisted chat
@@ -95,39 +147,59 @@ export function ChatWindow() {
           setMessages([WELCOME_MESSAGE]);
           return;
         }
-
-        const messagesRes = await fetch(`/api/chat?conversationId=${latest.id}`);
-        const { messages: history } = await messagesRes.json();
-        if (history?.length) {
-          setConversationId(latest.id);
-          setMessages(toEntries(history));
-        } else {
-          setMessages([WELCOME_MESSAGE]);
-        }
+        await loadConversation(latest.id);
       } catch {
         setMessages([WELCOME_MESSAGE]);
       } finally {
         setHistoryLoaded(true);
       }
     })();
-  }, [fetchConversations]);
+  }, [fetchConversations, loadConversation]);
+
+  async function loadOlder() {
+    if (!conversationId || !hasMore || loadingOlder) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+
+    setLoadingOlder(true);
+    const container = scrollRef.current;
+    const prevScrollHeight = container?.scrollHeight ?? 0;
+    try {
+      const res = await fetch(`/api/chat?conversationId=${conversationId}&before=${oldest.id}&take=${PAGE_SIZE}`);
+      if (res.status === 401) {
+        redirectToLogout();
+        return;
+      }
+      const { messages: older, hasMore: more } = await res.json();
+      if (older?.length) {
+        setMessages((prev) => [...toEntries(older), ...prev]);
+      }
+      setHasMore(!!more);
+      requestAnimationFrame(() => {
+        if (container) container.scrollTop = container.scrollHeight - prevScrollHeight;
+      });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  function handleScroll() {
+    const container = scrollRef.current;
+    if (!container) return;
+    stickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    if (container.scrollTop < 60) loadOlder();
+  }
 
   function startNewChat() {
     setConversationId(undefined);
     setMessages([WELCOME_MESSAGE]);
+    setHasMore(false);
   }
 
   async function openConversation(id: string) {
     if (id === conversationId) return;
     setHistoryLoaded(false);
-    const res = await fetch(`/api/chat?conversationId=${id}`);
-    if (res.status === 401) {
-      redirectToLogout();
-      return;
-    }
-    const { messages: history } = await res.json();
-    setConversationId(id);
-    setMessages(history?.length ? toEntries(history) : [WELCOME_MESSAGE]);
+    await loadConversation(id);
     setHistoryLoaded(true);
   }
 
@@ -188,44 +260,119 @@ export function ChatWindow() {
     setListening(true);
   }, [listening]);
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || sending) return;
-
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
-    setInput("");
+  /**
+   * Shared driver for every path that streams a fresh assistant reply back
+   * (a new message, an edited message, or a regeneration) — each just
+   * prepares the message list differently beforehand, then hands off here.
+   */
+  async function runExchange(url: string, body: string | undefined, pendingUserId?: string) {
     setSending(true);
+    stickToBottomRef.current = true;
+    const assistantId = generateTempId("temp-assistant");
+    let assistantAdded = false;
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, conversationId }),
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body,
       });
 
       if (res.status === 401) {
         redirectToLogout();
         return;
       }
+      if (!res.ok || !res.body) throw new Error("Request failed");
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to send message");
-
-      setConversationId(data.conversationId);
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-      // A brand-new conversation (or an updated title/order for an existing
-      // one) may have just been created — refresh the sidebar list.
-      const list = await fetchConversations();
-      if (list) setConversations(list);
+      await readSSE(res.body, (raw) => {
+        const event = raw as StreamEvent;
+        if (event.type === "start") {
+          if (event.conversationId) setConversationId(event.conversationId);
+          if (event.userMessageId && pendingUserId) {
+            const realId = event.userMessageId;
+            setMessages((prev) => prev.map((m) => (m.id === pendingUserId ? { ...m, id: realId } : m)));
+          }
+        } else if (event.type === "token" && typeof event.token === "string") {
+          const token = event.token;
+          setMessages((prev) => {
+            if (!assistantAdded) {
+              assistantAdded = true;
+              return [...prev, { id: assistantId, role: "assistant", content: token, streaming: true }];
+            }
+            return prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + token } : m));
+          });
+        } else if (event.type === "done") {
+          const finalId = event.messageId;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, id: finalId ?? m.id, streaming: false } : m))
+          );
+          fetchConversations().then((list) => {
+            if (list) setConversations(list);
+          });
+        }
+      });
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Something went wrong sending that. Try again." },
-      ]);
+      if (pendingUserId) {
+        setMessages((prev) => prev.map((m) => (m.id === pendingUserId ? { ...m, failed: true } : m)));
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { id: generateTempId("error"), role: "assistant", content: "Something went wrong. Try again." },
+        ]);
+      }
     } finally {
       setSending(false);
     }
+  }
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || sending) return;
+
+    const tempId = generateTempId("temp-user");
+    setMessages((prev) => [...prev, { id: tempId, role: "user", content: text }]);
+    setInput("");
+    await runExchange("/api/chat", JSON.stringify({ message: text, conversationId }), tempId);
+  }
+
+  function retryMessage(m: ChatEntry) {
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, failed: false } : x)));
+    runExchange("/api/chat", JSON.stringify({ message: m.content, conversationId }), m.id);
+  }
+
+  function startEdit(m: ChatEntry) {
+    setEditingId(m.id);
+    setEditValue(m.content);
+  }
+
+  async function submitEdit(m: ChatEntry) {
+    const content = editValue.trim();
+    if (!content || sending) return;
+    setEditingId(null);
+
+    setMessages((prev) => {
+      const idx = prev.findIndex((x) => x.id === m.id);
+      if (idx === -1) return prev;
+      return [...prev.slice(0, idx), { ...prev[idx], content }];
+    });
+
+    await runExchange(`/api/chat/messages/${m.id}/edit`, JSON.stringify({ content }));
+  }
+
+  async function regenerate(m: ChatEntry) {
+    if (sending) return;
+    setMessages((prev) => {
+      const idx = prev.findIndex((x) => x.id === m.id);
+      if (idx === -1) return prev;
+      return prev.slice(0, idx);
+    });
+    await runExchange(`/api/chat/messages/${m.id}/regenerate`, undefined);
+  }
+
+  async function copyMessage(content: string) {
+    await navigator.clipboard.writeText(content);
+    toast.success("Copied to clipboard");
   }
 
   return (
@@ -260,7 +407,15 @@ export function ChatWindow() {
           <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
         </div>
 
-        <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-4 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation"
+          className="flex-1 space-y-4 overflow-y-auto"
+        >
+          {loadingOlder && <p className="text-center text-xs text-muted-foreground">Loading earlier messages…</p>}
           {!historyLoaded && (
             <div className="flex justify-start" aria-hidden="true">
               <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
@@ -270,20 +425,75 @@ export function ChatWindow() {
               </div>
             </div>
           )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] min-w-0 wrap-break-word rounded-2xl px-4 py-2.5 text-sm ${
-                  m.role === "user"
-                    ? "bg-accent text-accent-foreground"
-                    : "border border-border bg-card text-card-foreground"
-                }`}
-              >
-                {m.content}
-              </div>
+          {messages.map((m) => (
+            <div key={m.id} className={`group/msg flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+              {editingId === m.id ? (
+                <div className="w-full max-w-[80%]">
+                  <Textarea value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus rows={3} className="rounded-2xl!" />
+                  <div className="mt-1.5 flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                      <X aria-hidden="true" className="h-3.5 w-3.5" />
+                      Cancel
+                    </Button>
+                    <Button size="sm" disabled={!editValue.trim()} onClick={() => submitEdit(m)}>
+                      Save &amp; submit
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-2.5 ${
+                      m.role === "user"
+                        ? "bg-accent text-accent-foreground wrap-break-word text-sm"
+                        : "border border-border bg-card text-card-foreground"
+                    }`}
+                  >
+                    {m.role === "assistant" ? <MessageContent content={m.content} /> : m.content}
+                  </div>
+
+                  {m.failed ? (
+                    <button onClick={() => retryMessage(m)} className="mt-1 text-xs font-medium text-destructive hover:underline">
+                      Failed to send · Retry
+                    </button>
+                  ) : (
+                    <div className="mt-1 flex gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100">
+                      {m.role === "assistant" && !m.streaming && m.id !== "welcome" && (
+                        <>
+                          <button
+                            onClick={() => copyMessage(m.content)}
+                            aria-label="Copy message"
+                            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => regenerate(m)}
+                            disabled={sending}
+                            aria-label="Regenerate response"
+                            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                          >
+                            <RotateCw aria-hidden="true" className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                      {m.role === "user" && (
+                        <button
+                          onClick={() => startEdit(m)}
+                          disabled={sending}
+                          aria-label="Edit message"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                        >
+                          <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           ))}
-          {sending && (
+          {sending && !messages.some((m) => m.streaming) && (
             <div className="flex justify-start" aria-hidden="true">
               <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
