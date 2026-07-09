@@ -2,7 +2,22 @@
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { Send, Loader2, Mic, MicOff, Menu, Copy, Pencil, RotateCw, X } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Mic,
+  MicOff,
+  Menu,
+  Copy,
+  Pencil,
+  RotateCw,
+  X,
+  SquarePen,
+  Brain,
+  ListTodo,
+  Bell,
+  CalendarDays,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +82,13 @@ const WELCOME_MESSAGE: ChatEntry = {
 
 const PAGE_SIZE = 30;
 
+const QUICK_ACTIONS: { label: string; icon: typeof Brain; starter: string }[] = [
+  { label: "Add a task", icon: ListTodo, starter: "Add a task to " },
+  { label: "Set a reminder", icon: Bell, starter: "Remind me to " },
+  { label: "Remember this", icon: Brain, starter: "Remember that I " },
+  { label: "Book a meeting", icon: CalendarDays, starter: "Help me book a meeting" },
+];
+
 function toEntries(history: { id: string; role: string; content: string }[]): ChatEntry[] {
   return history.map((m) => ({
     id: m.id,
@@ -101,6 +123,9 @@ export function ChatWindow() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const stickToBottomRef = useRef(true);
+  const heroInputRef = useRef<HTMLInputElement>(null);
+
+  const isEmptyState = historyLoaded && messages.length === 1 && messages[0].id === "welcome";
 
   useEffect(() => {
     if (stickToBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -375,6 +400,11 @@ export function ChatWindow() {
     toast.success("Copied to clipboard");
   }
 
+  function applyQuickAction(starter: string) {
+    setInput(starter);
+    requestAnimationFrame(() => heroInputRef.current?.focus());
+  }
+
   return (
     <div className="flex h-full">
       {/* Single toggleable sidebar — same control (one hamburger button) on
@@ -401,12 +431,90 @@ export function ChatWindow() {
 
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
         <div className="mb-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
-            <Menu aria-hidden="true" className="h-5 w-5" />
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Start new chat" onClick={startNewChat}>
+              <SquarePen aria-hidden="true" className="h-5 w-5" />
+            </Button>
+          </div>
           <h1 className="font-display text-lg font-medium text-foreground">Chat</h1>
         </div>
 
+        {!historyLoaded ? (
+          <div className="flex flex-1 items-center justify-center" aria-hidden="true">
+            <div className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+            </div>
+          </div>
+        ) : isEmptyState ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 px-2 text-center">
+            <div className="flex items-center gap-3">
+              <Brain aria-hidden="true" className="h-9 w-9 text-accent" />
+              <h2 className="font-display text-2xl font-medium text-foreground sm:text-3xl">
+                What should we tackle today?
+              </h2>
+            </div>
+
+            <form onSubmit={sendMessage} className="w-full max-w-xl">
+              <div className="flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-3 shadow-sm">
+                <label htmlFor="chat-input-hero" className="sr-only">
+                  Message LifeFlow
+                </label>
+                <input
+                  id="chat-input-hero"
+                  ref={heroInputRef}
+                  autoComplete="off"
+                  autoFocus
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="How can I help you today?"
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                />
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    aria-label={listening ? "Stop voice input" : "Start voice input"}
+                    aria-pressed={listening}
+                    className={`shrink-0 rounded-full p-2 transition-colors ${
+                      listening ? "text-destructive" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {listening ? <MicOff aria-hidden="true" className="h-4 w-4" /> : <Mic aria-hidden="true" className="h-4 w-4" />}
+                  </button>
+                )}
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={sending || !input.trim()}
+                  aria-label="Send message"
+                  className="shrink-0 rounded-full!"
+                >
+                  {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
+                </Button>
+              </div>
+            </form>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {QUICK_ACTIONS.map((qa) => (
+                <button
+                  key={qa.label}
+                  type="button"
+                  onClick={() => applyQuickAction(qa.starter)}
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                  <qa.icon aria-hidden="true" className="h-4 w-4 text-accent" />
+                  {qa.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -416,15 +524,6 @@ export function ChatWindow() {
           className="flex-1 space-y-4 overflow-y-auto"
         >
           {loadingOlder && <p className="text-center text-xs text-muted-foreground">Loading earlier messages…</p>}
-          {!historyLoaded && (
-            <div className="flex justify-start" aria-hidden="true">
-              <div className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-2.5">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
-              </div>
-            </div>
-          )}
           {messages.map((m) => (
             <div key={m.id} className={`group/msg flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
               {editingId === m.id ? (
@@ -535,6 +634,8 @@ export function ChatWindow() {
             {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
           </Button>
         </form>
+          </>
+        )}
       </div>
     </div>
   );
