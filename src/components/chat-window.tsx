@@ -511,6 +511,10 @@ export function ChatWindow() {
               <Menu aria-hidden="true" className="h-5 w-5" />
             </Button>
 
+            {/* Desktop already has the full nav (brand, links, settings, sign
+                out) in the persistent rail — this dropdown only needs to exist
+                on mobile, where the app-wide nav bar is hidden on this page. */}
+            <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -580,6 +584,7 @@ export function ChatWindow() {
                 })()}
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           </div>
 
           {getTierInfo(user?.tier).next && (
@@ -613,7 +618,7 @@ export function ChatWindow() {
             </div>
 
             <form onSubmit={sendMessage} className="w-full max-w-xl">
-              <div className="flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-3 shadow-sm has-focus-visible:border-accent has-focus-visible:ring-2 has-focus-visible:ring-accent/20">
+              <div className="flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-3 shadow-sm">
                 <label htmlFor="chat-input-hero" className="sr-only">
                   Message LifeFlow
                 </label>
@@ -625,7 +630,7 @@ export function ChatWindow() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="How can I help you today?"
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:outline-none"
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none! focus-visible:outline-none!"
                 />
                 {voiceSupported && (
                   <button

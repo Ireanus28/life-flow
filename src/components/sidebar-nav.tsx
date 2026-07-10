@@ -25,10 +25,18 @@ function BrandMark() {
   );
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  onNavigate,
+  items = links,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+  items?: typeof links;
+}) {
   return (
     <div className="flex flex-1 flex-col gap-1">
-      {links.map((link) => {
+      {items.map((link) => {
         const active = pathname.startsWith(link.href);
         return (
           <Link
@@ -109,13 +117,14 @@ export function SidebarNav() {
         </header>
       )}
 
-      {/* Desktop fixed rail */}
+      {/* Desktop fixed rail — no "New chat" entry here; starting a new chat
+          happens from inside the chat page itself on desktop. */}
       <nav
         aria-label="Primary"
         className="hidden h-full w-56 flex-col border-r border-border bg-background p-4 md:flex"
       >
         <BrandMark />
-        <NavLinks pathname={pathname} />
+        <NavLinks pathname={pathname} items={links.filter((l) => l.label !== "New chat")} />
         <NavFooter />
       </nav>
     </>
