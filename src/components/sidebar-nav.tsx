@@ -19,7 +19,7 @@ const links = [
 
 function BrandMark({ trailing, iconOnly }: { trailing?: ReactNode; iconOnly?: boolean }) {
   return (
-    <div className={`mb-8 flex items-center gap-2 px-2 ${trailing ? "justify-end" : "justify-between"}`}>
+    <div className="mb-8 flex items-center justify-between gap-2 px-2">
       <Link href="/dashboard" aria-label="LifeFlow" className="font-display flex items-center gap-2 text-lg font-medium text-foreground">
         <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
         {!iconOnly && "LifeFlow"}
