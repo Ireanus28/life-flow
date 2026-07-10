@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -40,17 +40,6 @@ type SidebarUser = { name: string | null; email: string; tier: string };
 
 type SearchMessageResult = { id: string; content: string; conversationId: string; role: string };
 
-function useLongPress(onLongPress: () => void, ms = 500) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const start = useCallback(() => {
-    timer.current = setTimeout(onLongPress, ms);
-  }, [onLongPress, ms]);
-  const clear = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-  return { onTouchStart: start, onTouchEnd: clear, onTouchMove: clear, onTouchCancel: clear };
-}
-
 function ConversationRow({
   conversation: c,
   active,
@@ -71,10 +60,9 @@ function ConversationRow({
   onDeleteRequest: (c: ConversationSummary) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const longPress = useLongPress(() => setMenuOpen(true));
 
   return (
-    <li className="group/row flex items-center" {...longPress}>
+    <li className="group/row flex items-center">
       <button
         onClick={() => {
           onSelect(c.id);
@@ -97,7 +85,7 @@ function ConversationRow({
               variant="ghost"
               size="icon-sm"
               aria-label={`Options for "${c.title}"`}
-              className="shrink-0 opacity-0 group-hover/row:opacity-100 data-popup-open:opacity-100"
+              className="shrink-0"
             >
               <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
             </Button>

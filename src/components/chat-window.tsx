@@ -520,10 +520,6 @@ export function ChatWindow() {
               <Menu aria-hidden="true" className="h-5 w-5" />
             </Button>
 
-            {/* Desktop already has the full nav (brand, links, settings, sign
-                out) in the persistent rail — this dropdown only needs to exist
-                on mobile, where the app-wide nav bar is hidden on this page. */}
-            <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -540,32 +536,34 @@ export function ChatWindow() {
                     <>
                       {/* Mobile hides the app-wide nav bar on this page (avoids a
                           second "LifeFlow" header) — these links keep Dashboard/
-                          Tasks/Reminders/Memory/Settings one tap away here instead. */}
-                      <DropdownMenuItem render={<Link href="/dashboard" />} className="rounded-xl p-2.5">
+                          Tasks/Reminders/Memory/Settings one tap away here instead.
+                          Desktop already has the full nav in the persistent rail,
+                          so these are mobile-only there. */}
+                      <DropdownMenuItem render={<Link href="/dashboard" />} className="rounded-xl p-2.5 md:hidden">
                         <LayoutDashboard aria-hidden="true" />
                         Dashboard
                       </DropdownMenuItem>
-                      <DropdownMenuItem render={<Link href="/tasks" />} className="rounded-xl p-2.5">
+                      <DropdownMenuItem render={<Link href="/tasks" />} className="rounded-xl p-2.5 md:hidden">
                         <ListTodo aria-hidden="true" />
                         Tasks
                       </DropdownMenuItem>
-                      <DropdownMenuItem render={<Link href="/reminders" />} className="rounded-xl p-2.5">
+                      <DropdownMenuItem render={<Link href="/reminders" />} className="rounded-xl p-2.5 md:hidden">
                         <Bell aria-hidden="true" />
                         Reminders
                       </DropdownMenuItem>
-                      <DropdownMenuItem render={<Link href="/memory" />} className="rounded-xl p-2.5">
+                      <DropdownMenuItem render={<Link href="/memory" />} className="rounded-xl p-2.5 md:hidden">
                         <Brain aria-hidden="true" />
                         Memory
                       </DropdownMenuItem>
-                      <DropdownMenuItem render={<Link href="/settings/notifications" />} className="rounded-xl p-2.5">
+                      <DropdownMenuItem render={<Link href="/settings/notifications" />} className="rounded-xl p-2.5 md:hidden">
                         <Settings aria-hidden="true" />
                         Settings
                       </DropdownMenuItem>
-                      <DropdownMenuItem render={<a href="/api/auth/logout" />} className="rounded-xl p-2.5">
+                      <DropdownMenuItem render={<a href="/api/auth/logout" />} className="rounded-xl p-2.5 md:hidden">
                         <LogOut aria-hidden="true" />
                         Sign out
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className="md:hidden" />
                       {next && (
                         <DropdownMenuItem render={<Link href="/settings/billing" />} className="items-start gap-2.5 rounded-xl p-2.5">
                           <div className="flex min-w-0 flex-1 flex-col">
@@ -593,7 +591,6 @@ export function ChatWindow() {
                 })()}
               </DropdownMenuContent>
             </DropdownMenu>
-            </div>
           </div>
 
           {getTierInfo(user?.tier).next && (

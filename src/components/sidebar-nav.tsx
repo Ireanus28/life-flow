@@ -17,12 +17,12 @@ const links = [
   { href: "/memory", label: "Memory", icon: Brain },
 ];
 
-function BrandMark({ trailing }: { trailing?: ReactNode }) {
+function BrandMark({ trailing, iconOnly }: { trailing?: ReactNode; iconOnly?: boolean }) {
   return (
     <div className="mb-8 flex items-center justify-between px-2">
-      <Link href="/dashboard" className="font-display flex items-center gap-2 text-lg font-medium text-foreground">
+      <Link href="/dashboard" aria-label="LifeFlow" className="font-display flex items-center gap-2 text-lg font-medium text-foreground">
         <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
-        LifeFlow
+        {!iconOnly && "LifeFlow"}
       </Link>
       {trailing}
     </div>
@@ -129,6 +129,7 @@ export function SidebarNav() {
         className="hidden h-full w-56 flex-col border-r border-border bg-background p-4 md:flex"
       >
         <BrandMark
+          iconOnly
           trailing={
             onChatPage && (
               <Button
