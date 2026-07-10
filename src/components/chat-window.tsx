@@ -40,6 +40,7 @@ import { ChatSidebar, type ConversationSummary } from "@/components/chat-sidebar
 import { MessageContent } from "@/components/message-content";
 import { readSSE } from "@/lib/sse";
 import { pricingTiers } from "@/lib/pricing-tiers";
+import { useChatSidebarToggle } from "@/lib/chat-sidebar-store";
 
 type ChatEntry = {
   id: string;
@@ -148,7 +149,7 @@ export function ChatWindow() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useChatSidebarToggle();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -507,7 +508,15 @@ export function ChatWindow() {
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+            {/* Desktop-only: same toggle now lives in the persistent rail,
+                on the same line as the brand mark. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Open chat history"
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden"
+            >
               <Menu aria-hidden="true" className="h-5 w-5" />
             </Button>
 

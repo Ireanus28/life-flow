@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, MessageCircle, ListTodo, Bell, Brain, Settings, LogOut, Menu, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useChatSidebarToggle } from "@/lib/chat-sidebar-store";
 
 const links = [
   { href: "/chat?new=1", label: "New chat", icon: SquarePen },
@@ -16,12 +17,15 @@ const links = [
   { href: "/memory", label: "Memory", icon: Brain },
 ];
 
-function BrandMark() {
+function BrandMark({ trailing }: { trailing?: ReactNode }) {
   return (
-    <Link href="/dashboard" className="font-display mb-8 flex items-center gap-2 px-2 text-lg font-medium text-foreground">
-      <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
-      LifeFlow
-    </Link>
+    <div className="mb-8 flex items-center justify-between px-2">
+      <Link href="/dashboard" className="font-display flex items-center gap-2 text-lg font-medium text-foreground">
+        <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
+        LifeFlow
+      </Link>
+      {trailing}
+    </div>
   );
 }
 
@@ -82,6 +86,7 @@ function NavFooter({ onNavigate }: { onNavigate?: () => void }) {
 export function SidebarNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const chatSidebar = useChatSidebarToggle();
   // The chat page has its own inline header (hamburger + "LifeFlow ⌄" plan
   // dropdown, which folds in these same nav links) — showing this mobile bar
   // there too would be a second, redundant "LifeFlow" header stacked on top.
@@ -123,7 +128,20 @@ export function SidebarNav() {
         aria-label="Primary"
         className="hidden h-full w-56 flex-col border-r border-border bg-background p-4 md:flex"
       >
-        <BrandMark />
+        <BrandMark
+          trailing={
+            onChatPage && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Open chat history"
+                onClick={() => chatSidebar.setOpen(true)}
+              >
+                <Menu aria-hidden="true" className="h-4 w-4" />
+              </Button>
+            )
+          }
+        />
         <NavLinks pathname={pathname} items={links.filter((l) => l.label !== "New chat")} />
         <NavFooter />
       </nav>

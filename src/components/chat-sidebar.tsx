@@ -380,15 +380,20 @@ export function ChatSidebar({
           <DialogHeader>
             <DialogTitle>Delete chat?</DialogTitle>
             <DialogDescription>
-              &ldquo;{deleteTarget?.title || "This conversation"}&rdquo; will be permanently deleted. This action
-              cannot be undone.
+              This will delete <span className="font-semibold text-foreground">{deleteTarget?.title || "this conversation"}</span>.
+              <br />
+              Visit your <Link href="/memory" className="underline underline-offset-2">memory page</Link> to delete any
+              memories saved during this chat.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </Button>
           </DialogFooter>
