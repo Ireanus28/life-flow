@@ -505,8 +505,12 @@ export function ChatWindow() {
         </SheetContent>
       </Sheet>
 
-      <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
-        <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        {/* Header stays flush against the rail's divider (full width) instead
+            of living inside the centered message column — otherwise it'd
+            inherit the same wide side margins as the chat content on a
+            spacious desktop viewport. */}
+        <div className="mb-4 flex items-center justify-between gap-4 px-6 pt-8">
           <div className="flex items-center gap-2">
             {/* Desktop-only: same toggle now lives in the persistent rail,
                 on the same line as the brand mark. */}
@@ -606,6 +610,7 @@ export function ChatWindow() {
           )}
         </div>
 
+        <div className="mx-auto flex w-full min-w-0 flex-1 flex-col px-6 pb-8 md:max-w-2xl">
         {!historyLoaded ? (
           <div className="flex flex-1 items-center justify-center" aria-hidden="true">
             <div className="flex items-center gap-1">
@@ -800,6 +805,7 @@ export function ChatWindow() {
         </form>
           </>
         )}
+        </div>
       </div>
     </div>
   );
