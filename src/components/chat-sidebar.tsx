@@ -38,8 +38,6 @@ export type ConversationSummary = {
 
 type SidebarUser = { name: string | null; email: string; tier: string };
 
-const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
 type SearchMessageResult = { id: string; content: string; conversationId: string; role: string };
 
 function useLongPress(onLongPress: () => void, ms = 500) {
@@ -172,10 +170,6 @@ export function ChatSidebar({
   const [renaming, setRenaming] = useState<ConversationSummary | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
-  // Computed once (lazy initializer) rather than via Date.now() inside the
-  // memo below — the Recent/Older boundary doesn't need to tick live while
-  // the panel is open.
-  const [recentCutoff] = useState(() => Date.now() - RECENT_WINDOW_MS);
 
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchMessageResult[] | null>(null);
@@ -199,15 +193,13 @@ export function ChatSidebar({
 
   const titleById = useMemo(() => new Map(conversations.map((c) => [c.id, c.title])), [conversations]);
 
-  const { pinned, recent, older, archived } = useMemo(() => {
+  const { pinned, recents, archived } = useMemo(() => {
     const active = conversations.filter((c) => !c.archived);
     const archived = conversations.filter((c) => c.archived);
     const pinned = active.filter((c) => c.pinned);
-    const unpinned = active.filter((c) => !c.pinned);
-    const recent = unpinned.filter((c) => new Date(c.updatedAt).getTime() >= recentCutoff);
-    const older = unpinned.filter((c) => new Date(c.updatedAt).getTime() < recentCutoff);
-    return { pinned, recent, older, archived };
-  }, [conversations, recentCutoff]);
+    const recents = active.filter((c) => !c.pinned);
+    return { pinned, recents, archived };
+  }, [conversations]);
 
   function openRename(c: ConversationSummary) {
     setRenaming(c);
@@ -263,7 +255,7 @@ export function ChatSidebar({
     );
   }
 
-  const isEmpty = pinned.length === 0 && recent.length === 0 && older.length === 0 && archived.length === 0;
+  const isEmpty = pinned.length === 0 && recents.length === 0 && archived.length === 0;
 
   return (
     <>
@@ -334,8 +326,7 @@ export function ChatSidebar({
           ) : (
             <>
               {renderSection("Pinned", pinned)}
-              {renderSection("Recent", recent)}
-              {renderSection("Older", older)}
+              {renderSection("Recents", recents)}
               {renderSection("Archived", archived)}
             </>
           )}

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Send,
+  ArrowUp,
   Loader2,
   Mic,
   MicOff,
@@ -19,6 +19,7 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  Check,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,13 +31,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ChatSidebar, type ConversationSummary } from "@/components/chat-sidebar";
 import { MessageContent } from "@/components/message-content";
 import { readSSE } from "@/lib/sse";
-import { tierLabels } from "@/lib/pricing-tiers";
+import { pricingTiers } from "@/lib/pricing-tiers";
 
 type ChatEntry = {
   id: string;
@@ -127,6 +127,13 @@ type StreamEvent = {
 };
 
 type UserInfo = { name: string | null; email: string; tier: string };
+
+function getTierInfo(tier: string | undefined) {
+  const idx = pricingTiers.findIndex((t) => t.dbTier === tier);
+  const current = idx === -1 ? pricingTiers[0] : pricingTiers[idx];
+  const next = idx === -1 || idx === pricingTiers.length - 1 ? null : pricingTiers[idx + 1];
+  return { current, next };
+}
 
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
@@ -478,36 +485,71 @@ export function ChatWindow() {
       </Sheet>
 
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
-        <div className="mb-4 flex items-center gap-4">
-          <div className="flex flex-col items-center gap-1">
-            <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
-              <Menu aria-hidden="true" className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Start new chat" onClick={startNewChat}>
-              <SquarePen aria-hidden="true" className="h-5 w-5" />
-            </Button>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center gap-1">
+              <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+                <Menu aria-hidden="true" className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" aria-label="Start new chat" onClick={startNewChat}>
+                <SquarePen aria-hidden="true" className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button className="font-display flex items-center gap-1 text-lg font-medium text-foreground">
+                    LifeFlow
+                    <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                }
+              />
+              <DropdownMenuContent align="start" className="w-72 rounded-2xl p-1.5">
+                {(() => {
+                  const { current, next } = getTierInfo(user?.tier);
+                  return (
+                    <>
+                      {next && (
+                        <DropdownMenuItem render={<Link href="/settings/billing" />} className="items-start gap-2.5 rounded-xl p-2.5">
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-sm font-medium text-foreground">LifeFlow {next.name}</span>
+                            <span className="text-xs text-muted-foreground">{next.tagline}</span>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                            Upgrade
+                          </span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem render={<Link href="/settings/billing" />} className="items-start gap-2.5 rounded-xl p-2.5">
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="text-sm font-medium text-foreground">LifeFlow {current.name}</span>
+                          <span className="text-xs text-muted-foreground">{current.tagline}</span>
+                        </div>
+                        <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem render={<Link href="/settings/billing" />} className="rounded-xl p-2.5 text-muted-foreground">
+                        See all plans
+                      </DropdownMenuItem>
+                    </>
+                  );
+                })()}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <button className="font-display flex items-center gap-1 text-lg font-medium text-foreground">
-                  LifeFlow
-                  <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                </button>
-              }
-            />
-            <DropdownMenuContent align="start" className="rounded-2xl">
-              <DropdownMenuLabel>{tierLabels[user?.tier ?? "FREE"] ?? "Free"} plan</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                render={<Link href="/settings/billing" />}
-              >
-                <Sparkles aria-hidden="true" />
-                Upgrade plan
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {getTierInfo(user?.tier).next && (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/settings/billing" />}
+              className="gap-1.5 rounded-full!"
+            >
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+              Upgrade
+            </Button>
+          )}
         </div>
 
         {!historyLoaded ? (
@@ -528,7 +570,7 @@ export function ChatWindow() {
             </div>
 
             <form onSubmit={sendMessage} className="w-full max-w-xl">
-              <div className="flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-3 shadow-sm has-focus-visible:border-accent has-focus-visible:ring-2 has-focus-visible:ring-accent/20">
                 <label htmlFor="chat-input-hero" className="sr-only">
                   Message LifeFlow
                 </label>
@@ -540,7 +582,7 @@ export function ChatWindow() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="How can I help you today?"
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:outline-none"
                 />
                 {voiceSupported && (
                   <button
@@ -562,7 +604,7 @@ export function ChatWindow() {
                   aria-label="Send message"
                   className="shrink-0 rounded-full!"
                 >
-                  {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
+                  {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <ArrowUp aria-hidden="true" className="h-4 w-4" />}
                 </Button>
               </div>
             </form>
@@ -699,7 +741,7 @@ export function ChatWindow() {
             </Button>
           )}
           <Button type="submit" disabled={sending || !input.trim()} aria-label="Send message" className="rounded-full!">
-            {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Send aria-hidden="true" className="h-4 w-4" />}
+            {sending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <ArrowUp aria-hidden="true" className="h-4 w-4" />}
           </Button>
         </form>
           </>

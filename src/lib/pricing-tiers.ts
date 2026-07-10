@@ -9,6 +9,7 @@ export const tierLabels: Record<string, string> = {
 export type PricingTier = {
   name: string;
   dbTier: "FREE" | "PERSONAL" | "FAMILY" | "PROFESSIONAL";
+  tagline: string;
   price: string;
   period: string;
   highlight: boolean;
@@ -19,6 +20,7 @@ export const pricingTiers: PricingTier[] = [
   {
     name: "Free",
     dbTier: "FREE",
+    tagline: "Get started for free",
     price: "$0",
     period: "forever",
     highlight: false,
@@ -35,6 +37,7 @@ export const pricingTiers: PricingTier[] = [
   {
     name: "Personal",
     dbTier: "PERSONAL",
+    tagline: "Unlimited messages & full memory",
     price: "$9",
     period: "/month",
     highlight: true,
@@ -52,6 +55,7 @@ export const pricingTiers: PricingTier[] = [
   {
     name: "Family",
     dbTier: "FAMILY",
+    tagline: "Share LifeFlow with up to 5 people",
     price: "$19",
     period: "/month",
     highlight: false,
@@ -67,6 +71,7 @@ export const pricingTiers: PricingTier[] = [
   {
     name: "Professional",
     dbTier: "PROFESSIONAL",
+    tagline: "CRM tools & document ingestion",
     price: "$29",
     period: "/month",
     highlight: false,
