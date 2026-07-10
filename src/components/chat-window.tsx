@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowUp,
@@ -13,7 +14,6 @@ import {
   Pencil,
   RotateCw,
   X,
-  SquarePen,
   Brain,
   ListTodo,
   Bell,
@@ -21,6 +21,9 @@ import {
   ChevronDown,
   Check,
   Sparkles,
+  LayoutDashboard,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,12 +158,26 @@ export function ChatWindow() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const stickToBottomRef = useRef(true);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const isEmptyState = historyLoaded && messages.length === 1 && messages[0].id === "welcome";
 
   useEffect(() => {
     if (stickToBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // "New chat" in the main app nav links here with ?new=1 so it always lands
+  // on a blank conversation rather than whatever was last open.
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    queueMicrotask(() => {
+      setConversationId(undefined);
+      setMessages([WELCOME_MESSAGE]);
+      setHasMore(false);
+      router.replace("/chat");
+    });
+  }, [searchParams, router]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -460,7 +477,10 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="-mt-14 flex h-full md:mt-0">
+      {/* The shared app layout reserves 56px up top for its mobile nav bar,
+          which this page hides in favor of its own inline header below —
+          claw that reserved space back so there's no empty gap on mobile. */}
       {/* Single toggleable sidebar — same control (one hamburger button) on
           every screen size, rather than a separate always-open desktop rail
           plus a different mobile mechanism. */}
@@ -486,15 +506,10 @@ export function ChatWindow() {
 
       <div className="mx-auto flex h-full min-w-0 flex-1 flex-col px-6 py-8 md:max-w-2xl">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center gap-1">
-              <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
-                <Menu aria-hidden="true" className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Start new chat" onClick={startNewChat}>
-                <SquarePen aria-hidden="true" className="h-5 w-5" />
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" aria-label="Open chat history" onClick={() => setSidebarOpen(true)}>
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -510,6 +525,34 @@ export function ChatWindow() {
                   const { current, next } = getTierInfo(user?.tier);
                   return (
                     <>
+                      {/* Mobile hides the app-wide nav bar on this page (avoids a
+                          second "LifeFlow" header) — these links keep Dashboard/
+                          Tasks/Reminders/Memory/Settings one tap away here instead. */}
+                      <DropdownMenuItem render={<Link href="/dashboard" />} className="rounded-xl p-2.5">
+                        <LayoutDashboard aria-hidden="true" />
+                        Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<Link href="/tasks" />} className="rounded-xl p-2.5">
+                        <ListTodo aria-hidden="true" />
+                        Tasks
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<Link href="/reminders" />} className="rounded-xl p-2.5">
+                        <Bell aria-hidden="true" />
+                        Reminders
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<Link href="/memory" />} className="rounded-xl p-2.5">
+                        <Brain aria-hidden="true" />
+                        Memory
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<Link href="/settings/notifications" />} className="rounded-xl p-2.5">
+                        <Settings aria-hidden="true" />
+                        Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<a href="/api/auth/logout" />} className="rounded-xl p-2.5">
+                        <LogOut aria-hidden="true" />
+                        Sign out
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       {next && (
                         <DropdownMenuItem render={<Link href="/settings/billing" />} className="items-start gap-2.5 rounded-xl p-2.5">
                           <div className="flex min-w-0 flex-1 flex-col">
@@ -562,7 +605,7 @@ export function ChatWindow() {
           </div>
         ) : isEmptyState ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-2 text-center">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Brain aria-hidden="true" className="h-9 w-9 text-accent" />
               <h2 className="font-display text-2xl font-medium text-foreground sm:text-3xl">
                 What should we tackle today?

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MessageCircle, ListTodo, Bell, Brain, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, MessageCircle, ListTodo, Bell, Brain, Settings, LogOut, Menu, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const links = [
+  { href: "/chat?new=1", label: "New chat", icon: SquarePen },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/tasks", label: "Tasks", icon: ListTodo },
@@ -73,34 +74,40 @@ function NavFooter({ onNavigate }: { onNavigate?: () => void }) {
 export function SidebarNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // The chat page has its own inline header (hamburger + "LifeFlow ⌄" plan
+  // dropdown, which folds in these same nav links) — showing this mobile bar
+  // there too would be a second, redundant "LifeFlow" header stacked on top.
+  const onChatPage = pathname === "/chat";
 
   return (
     <>
       {/* Mobile top bar */}
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
-        <Link href="/dashboard" className="font-display flex items-center gap-2 text-base font-medium text-foreground">
-          <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
-          LifeFlow
-        </Link>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Open navigation menu"
-            onClick={() => setOpen(true)}
-          >
-            <Menu aria-hidden="true" className="h-5 w-5" />
-          </Button>
-          <SheetContent side="left" className="flex flex-col p-4">
-            <SheetHeader className="p-0">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-            </SheetHeader>
-            <BrandMark />
-            <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
-            <NavFooter onNavigate={() => setOpen(false)} />
-          </SheetContent>
-        </Sheet>
-      </header>
+      {!onChatPage && (
+        <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
+          <Link href="/dashboard" className="font-display flex items-center gap-2 text-base font-medium text-foreground">
+            <Brain aria-hidden="true" className="h-5 w-5 text-accent" />
+            LifeFlow
+          </Link>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Open navigation menu"
+              onClick={() => setOpen(true)}
+            >
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            </Button>
+            <SheetContent side="left" className="flex flex-col p-4">
+              <SheetHeader className="p-0">
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+              </SheetHeader>
+              <BrandMark />
+              <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+              <NavFooter onNavigate={() => setOpen(false)} />
+            </SheetContent>
+          </Sheet>
+        </header>
+      )}
 
       {/* Desktop fixed rail */}
       <nav
