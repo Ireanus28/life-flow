@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 
 export const dynamic = "force-dynamic";
+// Vercel's default Node.js serverless runtime buffers a function's entire
+// response before sending it, so the SSE stream from POST never reaches the
+// browser incrementally — it all lands at once (or times out) instead of
+// showing tokens as they arrive. Edge Runtime streams the response through
+// as it's written, which is what makes the reply actually appear live.
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const body = await req.text();

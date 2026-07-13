@@ -30,16 +30,19 @@ export default async function DashboardPage() {
     eventTypes,
     configured: calendlyConfigured,
     authError: eventTypesAuthError,
-  }: { eventTypes: CalendlyEventType[]; configured: boolean; authError: boolean } = await eventTypesRes.json();
+    schedulingUrl,
+  }: { eventTypes: CalendlyEventType[]; configured: boolean; authError: boolean; schedulingUrl: string | null } =
+    await eventTypesRes.json();
   const {
     events: scheduledEvents,
     authError: scheduledEventsAuthError,
   }: { events: CalendlyScheduledEvent[]; authError: boolean } = await scheduledEventsRes.json();
   const calendlyAuthError = eventTypesAuthError || scheduledEventsAuthError;
-  // Calendly's API doesn't return a general "profile" URL directly — derive
-  // it from any event type's scheduling_url by dropping the last segment,
-  // e.g. https://calendly.com/user/30min -> https://calendly.com/user
-  const calendlyProfileUrl = eventTypes[0]?.schedulingUrl.replace(/\/[^/]+\/?$/, "");
+  // The account's own scheduling page (needs `users:read`, which this app's
+  // PAT may not have) is the reliable source — fall back to deriving one from
+  // an event type's URL only when that call isn't available, so the card is
+  // still clickable even before the users:read scope is granted.
+  const calendlyProfileUrl = schedulingUrl ?? eventTypes[0]?.schedulingUrl.replace(/\/[^/]+\/?$/, "");
 
   const openTasks = tasks
     .filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS")
@@ -180,7 +183,12 @@ export default async function DashboardPage() {
                     Book a meeting
                   </p>
                   {eventTypes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No bookable event types available.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No event types set up yet.{" "}
+                      {calendlyProfileUrl
+                        ? "Click anywhere on this card to open Calendly and create one."
+                        : "Create one in Calendly to start taking bookings."}
+                    </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {eventTypes.map((eventType) => (

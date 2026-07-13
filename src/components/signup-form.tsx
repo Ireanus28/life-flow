@@ -34,6 +34,9 @@ export function SignupForm() {
 
     setLoading(true);
     try {
+      // Registration issues a session directly (rather than a separate
+      // follow-up login call) — one less network round trip that could fail
+      // and strand a just-registered user back on the login page.
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,16 +51,6 @@ export function SignupForm() {
         return;
       }
 
-      const loginRes = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      setLoading(false);
-      if (!loginRes.ok) {
-        router.push("/login");
-        return;
-      }
       router.push("/dashboard");
     } catch {
       setError("Something went wrong. Check your connection and try again.");

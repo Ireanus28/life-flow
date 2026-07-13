@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bell, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { confirmDelete } from "@/lib/confirm-delete";
 
 type Channel = "IN_APP" | "EMAIL" | "SMS" | "PUSH";
 
@@ -40,6 +42,7 @@ export function ReminderList({ initialReminders }: { initialReminders: Reminder[
   async function remove(id: string) {
     setReminders((prev) => prev.filter((r) => r.id !== id));
     await fetch(`/api/reminders/${id}`, { method: "DELETE" });
+    toast.success("Reminder deleted");
   }
 
   async function createReminder(e: React.FormEvent) {
@@ -129,7 +132,7 @@ export function ReminderList({ initialReminders }: { initialReminders: Reminder[
                 size="icon-sm"
                 aria-label={`Delete reminder "${r.title}"`}
                 className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => remove(r.id)}
+                onClick={() => confirmDelete(r.title, () => remove(r.id))}
               >
                 <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
               </Button>

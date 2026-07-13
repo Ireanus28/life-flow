@@ -129,7 +129,7 @@ export function SidebarNav() {
         className="hidden h-full w-56 flex-col border-r border-border bg-background p-4 md:flex"
       >
         <BrandMark
-          iconOnly
+          iconOnly={onChatPage}
           trailing={
             onChatPage && (
               <Button

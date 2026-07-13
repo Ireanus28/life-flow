@@ -622,7 +622,6 @@ export function ChatWindow() {
         ) : isEmptyState ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-2 text-center">
             <div className="flex items-center gap-2">
-              <Brain aria-hidden="true" className="h-9 w-9 text-accent" />
               <h2 className="font-display text-2xl font-medium text-foreground sm:text-3xl">
                 What should we tackle today?
               </h2>

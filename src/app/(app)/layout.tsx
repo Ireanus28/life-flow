@@ -19,7 +19,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <ChatSidebarProvider>
-      <div className="flex flex-1">
+      {/* Bounded to the viewport height in its own right (rather than relying
+          on flex-1 against body's min-h-full, which is unbounded) so <main>'s
+          overflow-y-auto actually has a height to scroll within — otherwise
+          the whole document grows and the browser scrolls everything at
+          once, dragging the sidebar rail along with the chat/page content. */}
+      <div className="flex h-dvh flex-1">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-foreground"

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { confirmDelete } from "@/lib/confirm-delete";
 
 type Category = "PREFERENCE" | "FACT" | "RELATIONSHIP" | "CONTEXT";
 
@@ -42,6 +43,7 @@ export function MemoryList({ initialMemories }: { initialMemories: Memory[] }) {
   async function remove(id: string) {
     setMemories((prev) => prev.filter((m) => m.id !== id));
     await fetch(`/api/memories/${id}`, { method: "DELETE" });
+    toast.success("Memory deleted");
   }
 
   function openEdit(memory: Memory) {
@@ -98,7 +100,7 @@ export function MemoryList({ initialMemories }: { initialMemories: Memory[] }) {
               size="icon-sm"
               aria-label={`Delete memory: ${m.content}`}
               className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => remove(m.id)}
+              onClick={() => confirmDelete(m.content.length > 60 ? `${m.content.slice(0, 60)}…` : m.content, () => remove(m.id))}
             >
               <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
             </Button>

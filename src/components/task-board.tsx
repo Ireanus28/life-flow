@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { confirmDelete } from "@/lib/confirm-delete";
 
 type Task = {
   id: string;
@@ -117,7 +118,7 @@ function TaskRow({
           size="icon-sm"
           aria-label={`Delete "${task.title}"`}
           className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => onDelete(task.id)}
+          onClick={() => confirmDelete(task.title, () => onDelete(task.id))}
         >
           <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
         </Button>
@@ -195,6 +196,7 @@ export function TaskBoard({ initialTasks }: { initialTasks: Task[] }) {
   async function removeTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id && t.parentId !== id));
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    toast.success("Task deleted");
   }
 
   async function changeRecurrence(task: Task, interval: Task["recurrenceInterval"]) {
