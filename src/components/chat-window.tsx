@@ -596,18 +596,6 @@ export function ChatWindow() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          {getTierInfo(user?.tier).next && (
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={<Link href="/settings/billing" />}
-              className="gap-1.5 rounded-full!"
-            >
-              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-              Upgrade
-            </Button>
-          )}
         </div>
 
         <div className="mx-auto flex w-full min-w-0 flex-1 flex-col px-6 pb-8 md:max-w-2xl">
