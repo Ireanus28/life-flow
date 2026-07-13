@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge"; // must stream, not buffer — see /api/chat/route.ts
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
